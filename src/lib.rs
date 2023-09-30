@@ -1,4 +1,5 @@
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_while},
     character::is_alphanumeric,
     combinator::{map, opt},
@@ -30,7 +31,8 @@ fn remove_first(mut l: Vec<&str>) -> Vec<&str> {
 }
 
 pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
-    let (input, _) = tag("grid!")(input)?;
+    let protocol_parser = alt((tag("grid!"), tag("grid://")));
+    let (input, _) = opt(protocol_parser)(input)?;
     let (input, host) = take_while(is_letter_or_dot)(input)?;
 
     let route_list = separated_list0(tag("/"), take_while(is_letter));
@@ -78,6 +80,21 @@ mod tests {
     }
 
     #[test]
+    fn simple_surf_with_double_slash() {
+        let (_, surf) = parse_surf("grid://example.com").unwrap();
+
+        assert_eq!(
+            surf,
+            Surf {
+                host: "example.com",
+                path: Vec::default(),
+                query: HashMap::default(),
+                fragment: None,
+            }
+        );
+    }
+
+    #[test]
     fn parse_path() {
         let (_, surf) = parse_surf("grid!example.com/with/a/path").unwrap();
 
@@ -111,6 +128,21 @@ mod tests {
     fn parse_fragments() {
         let (_, surf) =
             parse_surf("grid!example.com/with/a/path?key1=val1&key2=val2#fragment").unwrap();
+
+        assert_eq!(
+            surf,
+            Surf {
+                host: "example.com",
+                path: ["with", "a", "path"].into(),
+                query: [("key1", "val1"), ("key2", "val2")].into(),
+                fragment: Some("fragment")
+            }
+        );
+    }
+
+    #[test]
+    fn parse_with_no_protocol() {
+        let (_, surf) = parse_surf("example.com/with/a/path?key1=val1&key2=val2#fragment").unwrap();
 
         assert_eq!(
             surf,

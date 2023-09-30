@@ -1,8 +1,9 @@
 use nom::{
     bytes::complete::{tag, take_while},
     character::is_alphanumeric,
-    combinator::map,
+    combinator::{map, opt},
     multi::separated_list0,
+    sequence::{preceded, separated_pair},
     IResult,
 };
 use std::collections::HashMap;
@@ -23,23 +24,31 @@ fn is_letter_or_dot(c: char) -> bool {
     is_alphanumeric(c as u8) || c == '.'
 }
 
+fn remove_first(mut l: Vec<&str>) -> Vec<&str> {
+    l.remove(0);
+    l
+}
+
 pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
     let (input, _) = tag("grid!")(input)?;
     let (input, host) = take_while(is_letter_or_dot)(input)?;
-    let (input, path) = map(
-        separated_list0(tag("/"), take_while(is_letter)),
-        |mut list| {
-            list.remove(0);
-            list
-        },
-    )(input)?;
+
+    let route_list = separated_list0(tag("/"), take_while(is_letter));
+    let path_parser = map(route_list, remove_first);
+    let (input, path) = map(opt(path_parser), Option::unwrap_or_default)(input)?;
+
+    let key_value = separated_pair(take_while(is_letter), tag("="), take_while(is_letter));
+    let key_value_list = separated_list0(tag("&"), key_value);
+    let query_parser = preceded(tag("?"), key_value_list);
+    let query_hash = map(query_parser, |q| q.into_iter().collect());
+    let (input, query) = map(opt(query_hash), Option::unwrap_or_default)(input)?;
 
     Ok((
         input,
         Surf {
             host,
             path,
-            query: HashMap::default(),
+            query,
             fragment: None,
         },
     ))
@@ -75,6 +84,22 @@ mod tests {
                 host: "example.com",
                 path: ["with", "a", "path"].into(),
                 query: HashMap::default(),
+                fragment: None,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_query_params() {
+        let (_, surf) = parse_surf("grid!example.com/with/a/path?key1=val1&key2=val2").unwrap();
+
+        let a = [("key1", "val1"), ("key2", "val2")];
+        assert_eq!(
+            surf,
+            Surf {
+                host: "example.com",
+                path: ["with", "a", "path"].into(),
+                query: a.into(),
                 fragment: None,
             }
         );

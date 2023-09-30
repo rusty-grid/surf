@@ -43,13 +43,16 @@ pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
     let query_hash = map(query_parser, |q| q.into_iter().collect());
     let (input, query) = map(opt(query_hash), Option::unwrap_or_default)(input)?;
 
+    let fragment_parser = preceded(tag("#"), take_while(is_letter));
+    let (input, fragment) = opt(fragment_parser)(input)?;
+
     Ok((
         input,
         Surf {
             host,
             path,
             query,
-            fragment: None,
+            fragment,
         },
     ))
 }
@@ -93,14 +96,29 @@ mod tests {
     fn parse_query_params() {
         let (_, surf) = parse_surf("grid!example.com/with/a/path?key1=val1&key2=val2").unwrap();
 
-        let a = [("key1", "val1"), ("key2", "val2")];
         assert_eq!(
             surf,
             Surf {
                 host: "example.com",
                 path: ["with", "a", "path"].into(),
-                query: a.into(),
+                query: [("key1", "val1"), ("key2", "val2")].into(),
                 fragment: None,
+            }
+        );
+    }
+
+    #[test]
+    fn parse_fragments() {
+        let (_, surf) =
+            parse_surf("grid!example.com/with/a/path?key1=val1&key2=val2#fragment").unwrap();
+
+        assert_eq!(
+            surf,
+            Surf {
+                host: "example.com",
+                path: ["with", "a", "path"].into(),
+                query: [("key1", "val1"), ("key2", "val2")].into(),
+                fragment: Some("fragment")
             }
         );
     }

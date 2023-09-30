@@ -23,7 +23,7 @@ fn is_letter_or_dot(c: char) -> bool {
     is_alphanumeric(c as u8) || c == '.'
 }
 
-pub fn parse_surf<'a>(input: &'a str) -> IResult<&'a str, Surf<'a>> {
+pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
     let (input, _) = tag("grid!")(input)?;
     let (input, host) = take_while(is_letter_or_dot)(input)?;
     let (input, path) = map(

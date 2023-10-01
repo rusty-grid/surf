@@ -1,9 +1,9 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
-    character::is_alphanumeric,
+    character::{is_alphanumeric, complete::alphanumeric0},
     combinator::{map, opt},
-    multi::separated_list0,
+    multi::{separated_list0, many0},
     sequence::{preceded, separated_pair},
     IResult,
 };
@@ -17,17 +17,8 @@ pub struct Surf<'a> {
     fragment: Option<&'a str>,
 }
 
-fn is_letter(c: char) -> bool {
-    is_alphanumeric(c as u8)
-}
-
 fn is_letter_or_dot(c: char) -> bool {
     is_alphanumeric(c as u8) || c == '.'
-}
-
-fn remove_first(mut l: Vec<&str>) -> Vec<&str> {
-    l.remove(0);
-    l
 }
 
 pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
@@ -35,17 +26,16 @@ pub fn parse_surf(input: &str) -> IResult<&str, Surf<'_>> {
     let (input, _) = opt(protocol_parser)(input)?;
     let (input, host) = take_while(is_letter_or_dot)(input)?;
 
-    let route_list = separated_list0(tag("/"), take_while(is_letter));
-    let path_parser = map(route_list, remove_first);
+    let path_parser = many0(preceded(tag("/"), alphanumeric0));
     let (input, path) = map(opt(path_parser), Option::unwrap_or_default)(input)?;
 
-    let key_value = separated_pair(take_while(is_letter), tag("="), take_while(is_letter));
+    let key_value = separated_pair(alphanumeric0, tag("="), alphanumeric0);
     let key_value_list = separated_list0(tag("&"), key_value);
     let query_parser = preceded(tag("?"), key_value_list);
     let query_hash = map(query_parser, |q| q.into_iter().collect());
     let (input, query) = map(opt(query_hash), Option::unwrap_or_default)(input)?;
 
-    let fragment_parser = preceded(tag("#"), take_while(is_letter));
+    let fragment_parser = preceded(tag("#"), alphanumeric0);
     let (input, fragment) = opt(fragment_parser)(input)?;
 
     Ok((

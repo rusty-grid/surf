@@ -14,10 +14,10 @@ use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Surf<'a> {
-    host: &'a str,
-    path: Vec<&'a str>,
-    query: HashMap<&'a str, &'a str>,
-    fragment: Option<&'a str>,
+    pub host: &'a str,
+    pub path: Vec<&'a str>,
+    pub query: HashMap<&'a str, &'a str>,
+    pub fragment: Option<&'a str>,
 }
 
 fn is_letter_or_dot(c: char) -> bool {
